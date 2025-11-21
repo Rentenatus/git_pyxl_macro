@@ -1,0 +1,14 @@
+{
+  "meaning": "string",
+  "params": "string",
+  "code": "string",
+  "line_start": "int64",
+  "line_number": "int64",
+  "local_used": "object",
+  "doc_block": "string",
+  "py_block": "string",
+  "model_doc": "string",
+  "doc_duration": "int64",
+  "model_code": "string",
+  "code_duration": "int64"
+}
