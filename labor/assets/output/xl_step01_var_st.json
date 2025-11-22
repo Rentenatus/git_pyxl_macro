@@ -6,6 +6,7 @@
   "line_number": "int64",
   "local_used": "object",
   "doc_block": "string",
+  "signatur": "string",
   "py_block": "string",
   "model_doc": "string",
   "doc_duration": "int64",
