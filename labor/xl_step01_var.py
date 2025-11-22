@@ -20,6 +20,10 @@ from xl_macro.xl_macro_reader import read_vba_macros_and_cls, read_named_ranges
 
 class Step01(Runnable):
 
+    def __init__(self):
+        super().__init__()
+        print("Step 01: Extract VBA macros and generate Python code snippets for vars.")
+
     def run(self):
         print(os.path.abspath("assets/input/Tarifrechner_KLV.xlsm"))
         macros = read_vba_macros_and_cls("assets/input/Tarifrechner_KLV.xlsm")
@@ -114,6 +118,5 @@ class Step01(Runnable):
 
 
 if __name__ == "__main__":
-    print("Steop01: Extract VBA macros and generate Python code snippets for vars.")
     step = Step01()
     step.run()

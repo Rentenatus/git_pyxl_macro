@@ -13,12 +13,14 @@ from xl_macro.dataframe_utils import save_dataframe_as, load_dataframe
 from xl_macro.langchain_xl_developer import request_dev, PROMPT_MODEL_CODE
 
 
-class Step02(Runnable):
+class Step03(Runnable):
+
+    def __init__(self):
+        super().__init__()
+        print("Step 03: Generate Python code snippets for methods.")
 
     def run(self):
         all_df = load_dataframe("assets/output/xl_step02_sign")
-
-
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         py_code_start = ""
@@ -45,7 +47,7 @@ class Step02(Runnable):
             used = row.local_used
             doc_block = row.doc_block
             start = time.time()
-            calls = find_calls_in_code(code, sign_dict)
+            calls = find_calls_in_code(meaning, code, sign_dict)
             print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ response code:")
             py_block = request_dev(label=meaning, code=code, doc_block=doc_block, var_code_py=py_code_start, sign_py = calls, names=used)
             end = time.time()
@@ -62,14 +64,15 @@ class Step02(Runnable):
         all_df.to_excel("assets/output/xl_step03_code.xlsx", index=False, engine="openpyxl")
         print("Saved.")
 
-def find_calls_in_code(code: str, sign_dict: dict) -> list:
+def find_calls_in_code(omitte: str, code: str, sign_dict: dict) -> list:
     calls = []
     for sign in sign_dict.keys():
+        if sign == omitte:
+            continue
         if sign in code:
             calls.append(sign_dict[sign])
     return calls
 
 if __name__ == "__main__":
-    print("Steop02: Generate Python code snippets for methods.")
-    step = Step02()
+    step = Step03()
     step.run()

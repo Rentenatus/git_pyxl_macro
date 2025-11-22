@@ -15,6 +15,10 @@ from xl_macro.langchain_xl_developer import request_sign, PROMPT_MODEL_SIGN
 
 class Step02(Runnable):
 
+    def __init__(self):
+        super().__init__()
+        print("Step 02: Generate Python code signatures for methods.")
+
     def run(self):
         all_df = load_dataframe("assets/output/xl_step01_var")
         all_df["signatur"] = ""
@@ -59,6 +63,5 @@ class Step02(Runnable):
 
 
 if __name__ == "__main__":
-    print("Steop02: Generate Python code snippets for methods.")
     step = Step02()
     step.run()

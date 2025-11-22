@@ -206,7 +206,8 @@ Start the python code with this import:
 from excel_globals import xl_workbook, xl_names, get_excel_global
 '''
 
-You will translate it into Python code. Limit yourself to this one method. The VBA code reads:
+You will translate it into Python code. Limit yourself to this one method. 
+Method line begins with 'def' followed by the method name. The VBA code reads:
 '''
 {code}
 '''
@@ -214,7 +215,7 @@ You will translate it into Python code. Limit yourself to this one method. The V
 
 USER_PROMPT_TEMPLATE_DEV_DEF_ADD_SIGN = """
 
-The following methods have already been provided in previous blocks; use them if needed:
+The following methods have already been provided in earlier blocks; use 'from excel_math import ...' to retrieve them.; use them if needed:
 {sign}
 
  """
