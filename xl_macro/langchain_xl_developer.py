@@ -6,6 +6,7 @@ from langchain_core.prompts import PromptTemplate
 
 BASE_URL = "http://127.0.0.1:11434"
 PROMPT_MODEL_DOC = "gemma3:27b"
+PROMPT_MODEL_SIGN = "gemma3:27b"
 PROMPT_MODEL_CODE = "gemma3:27b"
 
 # Systemprompt: Rollenbeschreibung
@@ -67,7 +68,7 @@ def get_excel_global(key: str):
 
 The user gives you individual code pieces step by step, either a declaration or a method, and if available, a description from the requirements.
 
-You simply rewrite this piece into Python code. Each of your pieces is glued together in a Python file. This creates a complete program.
+You simply rewrite this piece into Python code. All your building blocks will later be assembled into a Python file. This will create a complete program.
 """
 
 SYSTEM_PROMPT_DEV_VAR = """You are an expert software developer and are currently translating a piece of VBA code into Python.
@@ -128,14 +129,16 @@ UNDERSTOOD_PROMPT_TEMPLATE="""I have read the code. I understand it."""
 
 # PromptTemplate für den Userprompt
 #############################################################################
-USER_DOC_PROMPT_TEMPLATE_START_PY = """
+USER_PROMPT_TEMPLATE_START_PY = """
 Before we begin, I'd like to give you the existing code in python:
 '''
 {py_code}
 '''
 """
 
-USER_DOC_PROMPT_TEMPLATE_DEF = """
+#  PromptTemplate für den Userprompt, um die Dokumentation der Methode zu erzeugen.
+#  ----------------------------------------------------------------------------
+USER_PROMPT_TEMPLATE_DOC_DEF = """
 Document this method and only this method from a VBA code:
 '''
 {code}
@@ -151,7 +154,9 @@ Here is the method you should document again:
 '''
 """
 
-USER_DOC_PROMPT_TEMPLATE_VAR = """
+#  PromptTemplate für den Userprompt, um die Dokumentation der Variablendeklaration zu erzeugen
+#  ----------------------------------------------------------------------------
+USER_PROMPT_TEMPLATE_DOC_VAR = """
 Document this variables and only this variables from a VBA code:
 '''
 {code}
@@ -164,12 +169,37 @@ Here is the code you should document again:
 '''
 """
 
-USER_DEV_PROMPT_TEMPLATE_DEF = """
+#  PromptTemplate für den Userprompt für das Development, um die Signatur der Methode zu erzeugen.
+#  ----------------------------------------------------------------------------
+USER_PROMPT_TEMPLATE_DEV_SIGN = """
 I have a bit of VBA code here.
 {doc_block}
 
 The following names are used in this method:
 {names_block}
+
+The Python code already starts with this import:
+'''python
+from excel_globals import xl_workbook, xl_names, get_excel_global
+'''
+
+Your task is simply to generate the method signature from VBA into Python. Just that one line!. 
+This line begins with 'def' followed by the method name. The VBA code reads:
+'''
+{code}
+'''
+"""
+
+#  PromptTemplate für den Userprompt für das Development, um den Code der Methode zu erzeugen.
+#  ----------------------------------------------------------------------------
+USER_PROMPT_TEMPLATE_DEV_DEF = """
+I have a bit of VBA code here.
+{doc_block}
+
+The following names are used in this method:
+{names_block}
+
+{additional_instructions}
 
 Start the python code with this import:
 '''python
@@ -182,8 +212,16 @@ You will translate it into Python code. Limit yourself to this one method. The V
 '''
 """
 
+USER_PROMPT_TEMPLATE_DEV_DEF_ADD_SIGN = """
 
-USER_DEV_PROMPT_TEMPLATE_VAR = """
+The following methods have already been provided in previous blocks; use them if needed:
+{sign}
+
+ """
+
+#  PromptTemplate für den Userprompt für das Development, um Code der Variablendeklaration zu erzeugen.
+#  ----------------------------------------------------------------------------
+USER_PROMPT_TEMPLATE_DEV_VAR = """
 I have a bit of VBA code here.
 {doc_block}
 
@@ -204,12 +242,12 @@ You will translate it into Python code. Limit yourself to this variable. The VBA
 # Im trainierten Herzen des Modells steckt: "Du musst immer vollständig sein und alles liefern, was du kannst."
 # Der Text "Start the python code with this import:" ist quasi eine Injection, die das Modell beschwichtigt.
 
-def prompt_dev_def(code: str, doc_block: str, var_code_py: str, names: str) -> list:
+def prompt_signatur(code: str, doc_block: str, var_code_py: str, names: str) -> list:
     names_block = names if names else "None"
-    start_py_prompt = PromptTemplate.from_template(USER_DOC_PROMPT_TEMPLATE_START_PY).format(
+    start_py_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_START_PY).format(
         py_code=var_code_py
     )
-    user_prompt = PromptTemplate.from_template(USER_DEV_PROMPT_TEMPLATE_DEF).format(
+    user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DEV_SIGN).format(
         code=code, doc_block=doc_block, names_block=names_block
     )
     # Promptliste mit Konversationsverlauf
@@ -221,8 +259,30 @@ def prompt_dev_def(code: str, doc_block: str, var_code_py: str, names: str) -> l
     ]
     return messages
 
+def prompt_dev_def(code: str, doc_block: str, var_code_py: str, sign_py, names: str) -> list:
+    names_block = names if names else "None"
+    additional_instructions = ""
+    if sign_py:
+        additional_instructions = USER_PROMPT_TEMPLATE_DEV_DEF_ADD_SIGN.format(
+            sign=sign_py
+        )
+    start_py_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_START_PY).format(
+        py_code=var_code_py
+    )
+    user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DEV_DEF).format(
+        code=code, doc_block=doc_block, names_block=names_block, additional_instructions=additional_instructions
+    )
+    # Promptliste mit Konversationsverlauf
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT_DEV_DEF),
+        HumanMessage(content=start_py_prompt),
+        AIMessage(content=UNDERSTOOD_PROMPT_TEMPLATE),
+        HumanMessage(content=user_prompt)
+    ]
+    return messages
+
 def prompt_dev_var(code: str, doc_block: str, names: str) -> list:
-    user_prompt = PromptTemplate.from_template(USER_DEV_PROMPT_TEMPLATE_VAR).format(
+    user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DEV_VAR).format(
         code=code, doc_block=doc_block
     )
     # Promptliste mit Konversationsverlauf
@@ -234,7 +294,7 @@ def prompt_dev_var(code: str, doc_block: str, names: str) -> list:
 
 def prompt_doc_def(code: str, full_code: str, names: str) -> list:
     names_block = names if names else "None"
-    user_prompt = PromptTemplate.from_template(USER_DOC_PROMPT_TEMPLATE_DEF).format(
+    user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DOC_DEF).format(
         code=code, full_code=full_code, names_block=names_block
     )
     code_prompt = PromptTemplate.from_template(READ_PROMPT_TEMPLATE).format(
@@ -250,7 +310,7 @@ def prompt_doc_def(code: str, full_code: str, names: str) -> list:
     return messages
 
 def prompt_doc_var(code: str, full_code: str, names: str) -> list:
-    user_prompt = PromptTemplate.from_template(USER_DOC_PROMPT_TEMPLATE_VAR).format(
+    user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DOC_VAR).format(
         code=code, full_code=full_code
     )
     code_prompt = PromptTemplate.from_template(READ_PROMPT_TEMPLATE).format(
@@ -278,11 +338,16 @@ def request_doc(label: str, code: str, full_code: str, names: str) -> str:
     response = get_response(messages, model=PROMPT_MODEL_DOC)
     return response
 
-def request_dev(label: str, code: str, doc_block: str, var_code_py: str, names: str) -> str:
+def request_dev(label: str, code: str, doc_block: str, var_code_py: str, sign_py, names: str) -> str:
     if label.startswith("++"):
         messages = prompt_dev_var(code, doc_block, names)
     else:
-        messages = prompt_dev_def(code, doc_block, var_code_py ,names)
+        messages = prompt_dev_def(code, doc_block, var_code_py, sign_py, names)
     response = get_response(messages, model=PROMPT_MODEL_CODE)
+    return response
+
+def request_sign(label: str, code: str, doc_block: str, var_code_py: str, names: str) -> str:
+    messages = prompt_signatur(code, doc_block, var_code_py ,names)
+    response = get_response(messages, model=PROMPT_MODEL_SIGN)
     return response
 

@@ -10,5 +10,6 @@
   "model_doc": "string",
   "doc_duration": "int64",
   "model_code": "string",
-  "code_duration": "int64"
+  "code_duration": "int64",
+  "signatur": "object"
 }

@@ -16,21 +16,24 @@ from xl_macro.langchain_xl_developer import request_dev, PROMPT_MODEL_CODE
 class Step02(Runnable):
 
     def run(self):
-        all_df = load_dataframe("assets/output/xl_step01_var")
+        all_df = load_dataframe("assets/output/xl_step02_sign")
 
 
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         py_code_start = ""
         py_doc_start = ""
+        sign_dict = {}
         for idx, row in all_df.iterrows():
             meaning = row.meaning
-
             if meaning.startswith("++"):
                 py_block = row.py_block
                 doc_block = row.doc_block
                 py_code_start  = py_code_start + py_block
                 py_doc_start = py_doc_start + doc_block
+            else:
+                signatur = row.signatur
+                sign_dict[meaning] = signatur
 
         for idx, row in all_df.iterrows():
             meaning = row.meaning
@@ -42,8 +45,9 @@ class Step02(Runnable):
             used = row.local_used
             doc_block = row.doc_block
             start = time.time()
+            calls = find_calls_in_code(code, sign_dict)
             print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ response code:")
-            py_block = request_dev(label=meaning, code=code, doc_block=doc_block, var_code_py=py_code_start, names=used)
+            py_block = request_dev(label=meaning, code=code, doc_block=doc_block, var_code_py=py_code_start, sign_py = calls, names=used)
             end = time.time()
             all_df.at[idx, "code_duration"] = int((end - start) * 1000)
             all_df.at[idx, "model_code"] = PROMPT_MODEL_CODE
@@ -54,10 +58,16 @@ class Step02(Runnable):
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-        save_dataframe_as(all_df, "assets/output/xl_step02_var")
-        all_df.to_excel("assets/output/xl_step02_var.xlsx", index=False, engine="openpyxl")
+        save_dataframe_as(all_df, "assets/output/xl_step03_code")
+        all_df.to_excel("assets/output/xl_step03_code.xlsx", index=False, engine="openpyxl")
         print("Saved.")
 
+def find_calls_in_code(code: str, sign_dict: dict) -> list:
+    calls = []
+    for sign in sign_dict.keys():
+        if sign in code:
+            calls.append(sign_dict[sign])
+    return calls
 
 if __name__ == "__main__":
     print("Steop02: Generate Python code snippets for methods.")
