@@ -11,34 +11,7 @@ from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.prompts import PromptTemplate
 
-BASE_URL = "http://127.0.0.1:11434"
-PROMPT_MODEL_DOC = "gemma3:27b"
-PROMPT_MODEL_SIGN = "gemma3:27b"
-PROMPT_MODEL_CODE = "gemma3:27b"
-
-# Systemprompt: Rollenbeschreibung
-#############################################################################
-
-SYSTEM_PROMPT_DOC = """You are a software architect and you will document VBA code very effectively.
-You are also an expert in German pensions.
-For example, the following knowledge is second nature to you:
-
-Das 3-Schichten-Modell der Altersvorsorge in deutschlad entstand im Jahr 2005 mit Einführung des Alterseinkünftegesetzes (AltEinkG) und löste das bis dahin geltende 3-Säulen-Modell durch die Darstellung aus Sicht der jeweiligen Regeln zur Besteuerung ab.
-
-In der 1. Schicht finden sich die gesetzliche Rentenversicherung, berufsständische Versorgungswerke, die landwirtschaftlichen Alterskassen und die Beamtenversorgung.
-
-Zur 2. Schicht der Altersvorsorge gehören staatlich geförderte Zusatzversorgung, die betriebliche Altersvorsorge und die Riester Rente.
-
-Zur 3. Schicht der Altersvorsorge gehören alle Vorsorgeverträge, für die es in der Ansparphase keine staatliche Förderung gibt, wie private Kapitalanlagen.
-"""
-
-SYSTEM_PROMPT_DEV_DEF = """You are an expert software developer and are currently translating a piece of VBA code into Python.
-
-Global names, if used, can be retrieved using get_excel_global(key:str).
-
-Assume that this method '''def get_excel_global(key: str):''' is already defined in previous sections and usable now. Don't rewrite it. The code of this method is:
-'''
-from openpyxl import Workbook
+CELL_VALUE = """from openpyxl import Workbook
 from openpyxl.utils import range_boundaries
 
 xl_workbook: Workbook # The Excel workbook object
@@ -70,13 +43,42 @@ def get_excel_global(key: str):
 
     sheet = xl_workbook[sheet_name]
     cell = sheet[cell_ref]
-    return cell.value
+    return cell.value"""
+
+BASE_URL = "http://127.0.0.1:11434"
+PROMPT_MODEL_DOC = "gemma3:27b"
+PROMPT_MODEL_SIGN = "gemma3:27b"
+PROMPT_MODEL_CODE = "gemma3:27b"
+
+# Systemprompt: Rollenbeschreibung
+#############################################################################
+
+SYSTEM_PROMPT_DOC = """You are a software architect and you will document VBA code very effectively.
+You are also an expert in German pensions.
+For example, the following knowledge is second nature to you:
+
+Das 3-Schichten-Modell der Altersvorsorge in deutschlad entstand im Jahr 2005 mit Einführung des Alterseinkünftegesetzes (AltEinkG) und löste das bis dahin geltende 3-Säulen-Modell durch die Darstellung aus Sicht der jeweiligen Regeln zur Besteuerung ab.
+
+In der 1. Schicht finden sich die gesetzliche Rentenversicherung, berufsständische Versorgungswerke, die landwirtschaftlichen Alterskassen und die Beamtenversorgung.
+
+Zur 2. Schicht der Altersvorsorge gehören staatlich geförderte Zusatzversorgung, die betriebliche Altersvorsorge und die Riester Rente.
+
+Zur 3. Schicht der Altersvorsorge gehören alle Vorsorgeverträge, für die es in der Ansparphase keine staatliche Förderung gibt, wie private Kapitalanlagen.
+"""
+
+SYSTEM_PROMPT_DEV_DEF = """You are an expert software developer and are currently translating a piece of VBA code into Python.
+
+Global names, if used, can be retrieved using get_excel_global(key:str).
+
+Assume that this method '''def get_excel_global(key: str):''' is already defined in previous sections and usable now. Don't rewrite it. The code of this method is:
+'''
+%s
 '''
 
 The user gives you individual code pieces step by step, either a declaration or a method, and if available, a description from the requirements.
 
 You simply rewrite this piece into Python code. All your building blocks will later be assembled into a Python file. This will create a complete program.
-"""
+""" % CELL_VALUE
 
 SYSTEM_PROMPT_DEV_VAR = """You are an expert software developer and are currently translating a piece of VBA code into Python.
 
