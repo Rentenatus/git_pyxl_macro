@@ -39,7 +39,8 @@ class TestExcelMacro(unittest.TestCase):
                     doc_block = request_doc(label=label, code=code, full_code=value, names=used)
                     print(doc_block)
                     print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ response 2:")
-                    print(request_dev(label=label, code=code, doc_block=doc_block, var_code_py="", sign_py = [], names=used))
+                    print(request_dev(label=label, code=code, doc_block=doc_block, var_code_py="",
+                                      sign_py = [], own_sign = "", names=used))
                     print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ end response")
 
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ macro usage:")

@@ -193,7 +193,9 @@ from excel_globals import xl_workbook, xl_names, get_excel_global
 '''
 
 Your task is simply to generate the method signature from VBA into Python. Just that one line!. 
-This line begins with 'def' followed by the method name. The VBA code reads:
+This line begins with 'def' followed by the method name in python style: 
+An underscore precedes the originally capital letters; all letters are lowercase.
+The VBA code reads:
 '''
 {code}
 '''
@@ -216,7 +218,11 @@ from excel_globals import xl_workbook, xl_names, get_excel_global
 '''
 
 You will translate it into Python code. Limit yourself to this one method. 
-Method line begins with 'def' followed by the method name. The VBA code reads:
+Method line begins with 'def' followed by the method name. 
+Please use this signature:
+{signature}
+
+The VBA code reads:
 '''
 {code}
 '''
@@ -269,7 +275,7 @@ def prompt_signatur(code: str, doc_block: str, var_code_py: str, names: str) -> 
     ]
     return messages
 
-def prompt_dev_def(code: str, doc_block: str, var_code_py: str, sign_py, names: str) -> list:
+def prompt_dev_def(code: str, doc_block: str, var_code_py: str, sign_py, own_sign: str, names: str) -> list:
     names_block = names if names else "None"
     additional_instructions = ""
     if sign_py:
@@ -280,7 +286,8 @@ def prompt_dev_def(code: str, doc_block: str, var_code_py: str, sign_py, names: 
         py_code=var_code_py
     )
     user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DEV_DEF).format(
-        code=code, doc_block=doc_block, names_block=names_block, additional_instructions=additional_instructions
+        code=code, doc_block=doc_block, names_block=names_block, additional_instructions=additional_instructions,
+        signature=own_sign
     )
     # Promptliste mit Konversationsverlauf
     messages = [
@@ -348,11 +355,11 @@ def request_doc(label: str, code: str, full_code: str, names: str) -> str:
     response = get_response(messages, model=PROMPT_MODEL_DOC)
     return response
 
-def request_dev(label: str, code: str, doc_block: str, var_code_py: str, sign_py, names: str) -> str:
+def request_dev(label: str, code: str, doc_block: str, var_code_py: str, sign_py, own_sign:str, names: str) -> str:
     if label.startswith("++"):
         messages = prompt_dev_var(code, doc_block, names)
     else:
-        messages = prompt_dev_def(code, doc_block, var_code_py, sign_py, names)
+        messages = prompt_dev_def(code, doc_block, var_code_py, sign_py, own_sign, names)
     response = get_response(messages, model=PROMPT_MODEL_CODE)
     return response
 

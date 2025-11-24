@@ -2,8 +2,7 @@
 
 import numpy as np
 
-import numpy as np
-
+from datetime import date
 
 from openpyxl import Workbook
 from openpyxl.utils import range_boundaries
@@ -39,10 +38,7 @@ def get_excel_global(key: str):
     cell = sheet[cell_ref]
     return cell.value
 
-# Variable to hold a caching object.  The specific type of object
-# assigned to 'cache' is determined by the surrounding code and may
-# include a Dictionary, Collection, or cached Excel range data.
-cache = None
+cache = None  # Initialize cache as None.  Type will be determined by usage.
 
 rund_lx = 16
 rund_tx = 16
@@ -54,571 +50,586 @@ rund_Rx = 16
 max_Alter = 123
 
 def initialize_cache():
-    """
-    Creates a new dictionary object and assigns it to the 'cache' variable.
-    """
-    cache = {}  # Python's equivalent of Scripting.Dictionary
+    # Create a new dictionary object
+    cache = {}
     return cache
 
-def Act_qx(Alter: int, Sex: str, Tafel: str, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_qx(alter: int, sex: str, tafel: str, geb_jahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the actuarial mortality probability (qx) for a given age, sex, and mortality table.
-
-    Parameters:
-    - Alter (int): The age for which to calculate qx.
-    - Sex (str): The sex of the individual ("M" for male, "F" for female). Case insensitive.
-    - Tafel (str): The mortality table identifier. Currently supports "DAV1994_T" and "DAV2008_T". Case insensitive.
-    - GebJahr (int, optional): Year of birth. Not currently used. Defaults to None.
-    - Rentenbeginnalter (int, optional): Age at which pension benefits begin. Not currently used. Defaults to None.
-    - Schicht (int, optional): Layer of the German pension system. Not currently used. Defaults to 1.
-
-    Returns:
-    - The actuarial mortality probability (qx) as a float. Returns 1 if the specified mortality table is not supported.
-
-    Raises:
-    - KeyError: If the worksheet or ranges are not found in the Excel workbook.
+    Calculates the actuarial death probability (qx) for a given age, sex, and mortality table.
     """
-    try:
-        # Assuming "Tafeln" is the sheet name
-        ws = xl_workbook["Tafeln"]
-    except KeyError:
-        raise KeyError("Worksheet 'Tafeln' not found in xl_workbook.")
+    sex = sex.upper()
+    if sex != "M":
+        sex = "F"
 
-    if Sex.upper() != "M":
-        Sex = "F"
+    if tafel.upper() in ("DAV1994_T", "DAV2008_T"):
+        s_tafelvektor = tafel.upper() + "_" + sex
+        try:
+            # Assuming "v_Tafeln" is a horizontal range
+            match_index = 0  # Excel Match returns 1-based index
+            v_tafeln_values = get_excel_global("v_Tafeln")
+            
+            if v_tafeln_values is None:
+                raise ValueError("v_Tafeln not found in Excel.")
 
-    try:
-        match_range = ws["v_Tafeln"]
-        qx_range = ws["m_Tafeln"]
-    except KeyError:
-        raise KeyError("Ranges 'v_Tafeln' or 'm_Tafeln' not found in worksheet 'Tafeln'.")
-    
-    table_sex_string = Tafel.upper() + "_" + Sex
-    
-    # Find the match in v_Tafeln using a loop for compatibility with Excel's MATCH
-    match_index = None
-    for i in range(1, len(match_range) + 1):
-        if str(match_range[i]).upper() == table_sex_string:
-            match_index = i
-            break
+            try:
+                match_index = v_tafeln_values.index(s_tafelvektor) + 1 # Python lists are 0-indexed, Excel starts at 1.
+            except ValueError:
+                return 1.0 # Raise error 1
 
-    if match_index is None:
-      return 1.0
-    
-    qx_value = qx_range[match_index][Alter]
-    
-    return qx_value
-
-def v_lx(Endalter: int, Sex: str, Tafel: str, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> list[float]:
-    """
-    Calculates the vector 'lx', representing the number of survivors at each age.
-
-    Parameters:
-    - Endalter (int): The maximum age to calculate the survivor vector up to. If -1, the vector is calculated up to the maximum defined age ('max_Alter').
-    - Sex (str): The sex of the individual ("M" for male, "F" for female).
-    - Tafel (str): The mortality table to use (e.g., "DAV2018", "Hensel").  This determines the base mortality rates.
-    - GebJahr (int, optional): The year of birth.  May be used within the 'Act_qx' function to adjust mortality rates based on cohort effects.
-    - Rentenbeginnalter (int, optional): The age at which pension payments begin. May be used within 'Act_qx'.
-    - Schicht (int, optional): An integer representing the layer (Schicht) of the German pension system (1, 2, or 3).  Defaults to 1. Used within the 'Act_qx' function, likely influencing mortality assumptions based on the pillar of retirement provision.
-
-    Returns:
-    - A list representing the 'lx' vector.  Each element of the array corresponds to the number of survivors at that age.  The first element (index 0) represents age 0.
-    """
-    try:
-        max_Alter = get_excel_global("max_Alter")
-        rund_lx = get_excel_global("rund_lx")
-    except KeyError as e:
-        raise KeyError(f"Required global variable not found: {e}")
-    
-    if Endalter == -1:
-        Grenze = max_Alter
+            # Assuming "m_Tafeln" is a vertical range
+            m_tafeln_values = get_excel_global("m_Tafeln")
+            if m_tafeln_values is None:
+                raise ValueError("m_Tafeln not found in Excel.")
+            
+            qx = m_tafeln_values[alter]
+            return qx
+            
+        except (KeyError, ValueError) as e:
+            return 1.0 # error 1
     else:
-        Grenze = Endalter
+        return 1.0 # error 1
 
-    vek = [0.0] * (Grenze + 1)  # Initialize the list with the correct size
-    vek[0] = 1000000.0
+def v_lx(endalter: int, sex: str, tafel: str, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1):
+    """
+    Calculates and returns a vector representing the lx values (number of survivors at age x).
 
-    for i in range(1, Grenze + 1):
-        vek[i] = vek[i - 1] * (1 - Act_qx(i - 1, Sex, Tafel, GebJahr, Rentenbeginnalter, Schicht))
+    Parameters:
+        endalter (int): The maximum age to calculate lx values up to.
+                         If endalter is -1, the calculation will extend up to max_Alter.
+        sex (str): The sex of the population being modeled ("M" or "F").
+        tafel (str): Specifies the mortality table to use.
+        gebjahr (int, optional): The birth year of the cohort. Defaults to None.
+        rentenbeginnalter (int, optional): The standard age at which pension payments begin. Defaults to None.
+        schicht (int, optional): Represents the pension scheme layer. Defaults to 1.
+
+    Returns:
+        list: A list containing the lx values.
+    """
+    if endalter == -1:
+        grenze = get_excel_global("max_Alter")
+    else:
+        grenze = endalter
+
+    vek = [0] * grenze
+    vek[0] = 1000000
+
+    rund_lx = get_excel_global("rund_lx")
+
+    for i in range(1, grenze):
+        vek[i] = vek[i - 1] * (1 - act_qx(i - 1, sex, tafel, gebjahr, rentenbeginnalter, schicht))
         vek[i] = round(vek[i], rund_lx)
 
     return vek
 
-def Act_lx(Alter: int, Sex: str, Tafel: str, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_lx(alter: int, sex: str, tafel: str, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the actuarial lifetime expectation (`lx`) at a given age.
+    Calculates the actuarial life expectancy (lx) at a given age, considering sex, mortality table, and pension scheme layer.
 
     Parameters:
-        Alter (int): The current age.
-        Sex (str): The sex of the individual ("M" or "W").
-        Tafel (str): The name of the mortality table.
-        GebJahr (int, optional): The birth year. Defaults to None.
-        Rentenbeginnalter (int, optional): The retirement age. Defaults to None.
-        Schicht (int, optional): The pension scheme layer. Defaults to 1.
+        alter (int): The age for which to calculate the life expectancy (in years).  This is the primary input and the index used to retrieve the value from the returned array.
+        sex (str): The sex of the individual ("m" for male, "w" for female).  This influences the chosen mortality table.
+        tafel (str): The mortality table to use (e.g., "DAV2018", "GVG1994"). The availability of specific tables depends on the implementation of the underlying `v_lx` function.
+        gebjahr (int, optional): The year of birth. While not directly used in this function, it's passed to the `v_lx` function, suggesting it might be used for table adjustments or cohort effects within that function.  If not provided, a default or current year is likely used internally within `v_lx`.
+        rentenbeginnalter (int, optional): The age at which pension payments begin. This is passed to the `v_lx` function and may influence the life expectancy calculation depending on the specifics of the `v_lx` implementation, potentially for annuitization calculations.
+        schicht (int, optional):  Specifies the layer of the German pension system (1, 2, or 3).  Defaults to 1.  This parameter is critical as it ties the function directly to the broader German pension context.  See the "Relationship to German Pension System" section below for more detail.
 
     Returns:
-        float: The actuarial lifetime expectation (`lx`).
-    """
-    vek = v_lx(Alter, Sex, Tafel, GebJahr, Rentenbeginnalter, Schicht)
-    return vek[Alter]
+        float: The actuarial life expectancy (lx) at the given age, based on the provided parameters.  The value represents the expected number of remaining years of life for a person of that age, sex, and pension scheme layer.
 
-def v_tx(Endalter: int, Sex: str, Tafel: str, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1):
+    Remarks:
+        This function acts as a wrapper around the `v_lx` function. It retrieves an array of life expectancy values from `v_lx` and then returns the value corresponding to the input `Alter`.  Error handling (e.g., for invalid `Sex` or `Tafel` values) is likely handled within the `v_lx` function.
+
+    See Also:
+        v_lx
+
+    Author: Software Architect
+    Date: 2024-02-29
     """
-    Calculates the vector of tx values (number of deaths) for a given cohort.
+    vek = v_lx(alter, sex, tafel, gebjahr, rentenbeginnalter, schicht)
+    return vek[alter]
+
+def v_tx(endalter: int, sex: str, tafel: str, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1):
+    """
+    Calculates the vector of tx values (number of deaths at each age).
 
     Parameters:
-        Endalter (int): The upper age limit for the calculation.
-        Sex (str): The sex of the cohort ("m" or "w").
-        Tafel (str): The mortality table to be used.
-        GebJahr (Optional[int]): The birth year of the cohort.
-        Rentenbeginnalter (Optional[int]): The age at which pension payments begin.
-        Schicht (Optional[int]): The pension scheme layer (default is 1).
+        endalter (int): Upper age limit for the calculation. If -1, use max_Alter.
+        sex (str): Gender ("M" or "F").
+        tafel (str): Mortality table to use.
+        gebjahr (int, optional): Year of birth. Defaults to None.
+        rentenbeginnalter (int, optional): Age at which pension begins. Defaults to None.
+        schicht (int, optional): Pension system layer (1, 2, or 3). Defaults to 1.
 
     Returns:
         np.ndarray: A NumPy array containing the calculated tx values.
     """
-
-    if Endalter == -1:
-        Grenze = get_excel_global("max_Alter")
+    if endalter == -1:
+        grenze = get_excel_global("max_Alter")
     else:
-        Grenze = Endalter
+        grenze = endalter
 
-    vek = np.zeros(Grenze)
-    v_Temp_lx = v_lx(Grenze, Sex, Tafel, GebJahr, Rentenbeginnalter, Schicht)
+    vek = np.zeros(grenze)
+    v_temp_lx = v_lx(grenze, sex, tafel, gebjahr, rentenbeginnalter, schicht)
 
-    for i in range(Grenze - 1):
-        vek[i] = v_Temp_lx[i] - v_Temp_lx[i + 1]
+    for i in range(grenze - 1):
+        vek[i] = v_temp_lx[i] - v_temp_lx[i + 1]
         vek[i] = round(vek[i], get_excel_global("rund_tx"))
 
     return vek
 
-def Act_tx(Alter: int, Sex: str, Tafel: str, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_tx(alter: int, sex: str, tafel: str, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the actuarial present value factor (tx) for a given age, sex, and life table,
-    considering potential adjustments for birth year, retirement age, and pension scheme layer (Schicht).
+    Calculates the actuarial present value factor (tx) for a given age, sex, and mortality table.
     """
-    vek = v_tx(Alter, Sex, Tafel, GebJahr, Rentenbeginnalter, Schicht)
-    Act_tx = vek[Alter]
-    return Act_tx
+    vek = v_tx(alter, sex, tafel, gebjahr, rentenbeginnalter, schicht)
+    return vek[alter]
 
-def v_Dx(Endalter: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1):
+def v_dx(endalter: int, sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1):
     """
-    Calculates the vector of 'Dx' values, representing the present values of surviving to each age.
+    Calculates the vector 'Dx' representing the present value of a life annuity due, considering various actuarial parameters.
 
     Parameters:
-        Endalter (int): The maximum age to calculate the Dx values for. If -1, calculations are performed up to the defined maximum age (<see cref="max_Alter"/>).
-        Sex (str): The sex of the individual ("M" for male, "F" for female). This influences the mortality table used.
-        Tafel (str): The mortality table to use. Identifies the specific mortality assumptions.
-        Zins (float): The discount rate (interest rate) used to calculate present values.
-        GebJahr (int, optional): The year of birth. May be used by the underlying 'v_lx' function to determine the appropriate mortality table.
-        Rentenbeginnalter (int, optional): The age at which a pension or annuity begins. May be used by the underlying 'v_lx' function.
-        Schicht (int, optional): An integer indicating the pension scheme layer (1, 2, or 3) within the German pension system (Altervorsorge). Defaults to 1.
+        endalter (int): The final age to which the annuity is calculated. A value of -1 indicates calculation up to 'max_Alter' (a globally defined maximum age).
+        sex (str): A string indicating the sex of the annuitant. Used to select appropriate mortality rates. Example: "M" for male, "F" for female.
+        tafel (str): A string specifying the mortality table to use. Different tables represent different population demographics and mortality assumptions.
+        zins (float): The interest rate used for discounting future payments. This is crucial for calculating present values.
+        gebjahr (int, optional): The year of birth of the annuitant. May be used in conjunction with the mortality table.
+        rentenbeginnalter (int, optional): The age at which the annuity payments begin. Influences the calculation within the underlying mortality table function.
+        schicht (int, optional): An integer representing the "Schicht" (layer) of the German pension system (1, 2, or 3). This likely influences the selection of specific actuarial assumptions or rules. Defaults to 1.
 
     Returns:
-        np.ndarray: A NumPy array containing the calculated 'Dx' values for each age from 0 up to 'Endalter' (or 'max_Alter' if 'Endalter' is -1). Each element of the array represents the present value of surviving to that age.
-    
+        list[float]: A list containing the calculated 'Dx' values. Each element represents the present value of a 1-Euro annuity payment due at that age, discounted at the specified interest rate and based on the provided mortality assumptions.
     """
     
-    if Endalter == -1:
-        Grenze = get_excel_global("max_Alter")
+    if endalter == -1:
+        grenze = get_excel_global("max_Alter")
     else:
-        Grenze = Endalter
-        
-    vek = np.zeros(Grenze + 1)
-    v = 1 / (1 + Zins)
-    
-    v_Temp_lx = v_lx(Grenze, Sex, Tafel, GebJahr, Rentenbeginnalter, Schicht)
-    
-    for i in range(Grenze + 1):
-        vek[i] = v_Temp_lx[i] * (v ** i)
+        grenze = endalter
+
+    vek = [0.0] * grenze
+    v = 1.0 / (1.0 + zins)
+
+    v_temp_lx = v_lx(grenze, sex, tafel, gebjahr, rentenbeginnalter, schicht)
+
+    for i in range(grenze):
+        vek[i] = v_temp_lx[i] * (v ** i)
         vek[i] = round(vek[i], get_excel_global("rund_Dx"))
-        
+
     return vek
 
 cache = {}  # Initialize the cache dictionary
 
-def Act_Dx(Alter: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_dx(alter: int, sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the actuarial present value factor 'Dx' for a given age, sex, mortality table, interest rate, and pension scheme layer.
+    Calculates the actuarial present value factor 'Dx' for a given age, sex, mortality table, interest rate, and pension scheme layer (Schicht).
     """
-    # Check if the dictionary is initialized
+    # Überprüfe, ob das Dictionary initialisiert ist
     if cache is None:
         initialize_cache()
 
-    sKey = CreateCacheKey("Dx", Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
+    s_key = create_cache_key("Dx", alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
 
-    # Check if the value already exists in the cache
-    if sKey in cache:
-        return cache[sKey]
+    # Überprüfen, ob der Wert bereits im Cache vorhanden ist
+    if s_key in cache:
+        return cache[s_key]
     else:
-        vek = v_Dx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-        result = vek[Alter]
+        vek = v_dx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
+        result = vek[alter]
 
-        # Store the result in the cache
-        cache[sKey] = result
-
+        # Ergebnis im Cache speichern
+        cache[s_key] = result
         return result
 
-def v_Cx(Endalter: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1):
+def v_cx(endalter: int, sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1):
     """
-    Calculates the vector of 'Cx' values, representing the present value of a life annuity-immediate.
+    Calculates the vector of 'Cx' values, representing the present value of a life annuity-due.
 
     Parameters:
-        Endalter (int): The final age to calculate the Cx values for.  A value of -1 indicates calculation up to the maximum supported age (max_Alter).
-        Sex (str): The sex of the annuitant ("M" for male, "F" for female). Affects mortality table selection.
-        Tafel (str): The mortality table to use for calculations.  Different tables represent different population characteristics and mortality rates.
-        Zins (float): The annual interest rate used for discounting future payments. Expressed as a decimal (e.g., 0.05 for 5%).
-        GebJahr (int, optional): The year of birth. May be used by some mortality tables.
-        Rentenbeginnalter (int, optional): The age at which the annuity payments begin.
-        Schicht (int, optional): An integer representing the layer (Schicht) of the German pension system (1, 2, or 3). Defaults to 1. This parameter influences the calculation of the 'tx' values used within the function, accounting for different regulations and tax treatments for each layer.
+        endalter (int): The final age to calculate Cx for. If -1, calculations are performed up to 'max_Alter' (a globally defined constant representing the maximum age).
+        sex (str): A string indicating the sex ("m" for male, "w" for female) for mortality table selection.
+        tafel (str): The name of the mortality table to use.  This identifies the specific actuarial table used to determine mortality rates.
+        zins (float): The interest rate used for discounting future payments.  Expressed as a decimal (e.g., 0.05 for 5%).
+        gebjahr (int, optional): The year of birth. Used in conjunction with 'Tafel' to select an appropriate mortality table.  If not provided, a default table is assumed.
+        rentenbeginnalter (int, optional): The age at which the annuity payments begin.  Used in conjunction with 'Tafel' and 'GebJahr'.
+        schicht (int, optional): An integer representing the layer/pillar of the German pension system (1, 2, or 3).  This parameter likely influences the choice of mortality table or associated factors, reflecting different risk profiles and assumptions within each layer.  Defaults to 1.
 
     Returns:
-        list[float]: A list containing the calculated 'Cx' values.  Each element of the list corresponds to a specific age, representing the present value of an annuity payment at that age.
+        list[float]: A list containing the calculated 'Cx' values.  Each element of the list corresponds to an age.  The values are rounded to the 'rund_Cx' decimal places (a globally defined constant).
     """
-    # erzeugt Vektor der Cx
-    vek = []
-    i = 0
-    
-    Grenze = 0
-    
-    if Endalter == -1:
-        Grenze = get_excel_global('max_Alter')
-    else:
-        Grenze = Endalter
-    
-    # ReDim vek(Grenze)
-    v = 1 / (1 + Zins)
-    
-    v_Temp_tx = v_tx(Grenze, Sex, Tafel, GebJahr, Rentenbeginnalter, Schicht)
-            
-    for i in range(Grenze):
-        vek.append(v_Temp_tx[i] * v ** (i + 1))
-        vek[i] = round(vek[i], get_excel_global('rund_Cx'))
-    
+    grenze = get_excel_global("max_Alter") if endalter == -1 else endalter
+    vek = [0.0] * grenze
+    v = 1 / (1 + zins)
+    v_temp_tx = v_tx(grenze, sex, tafel, gebjahr, rentenbeginnalter, schicht)
+
+    for i in range(grenze):
+        vek[i] = v_temp_tx[i] * (v ** (i + 1))
+        vek[i] = round(vek[i], get_excel_global("rund_Cx"))
+
     return vek
 
 cache = {}  # Initialize the cache dictionary
 
-def Act_Cx(Alter: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_cx(alter: int, sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the actuarial present value factor 'Cx' for a given age, sex, mortality table, interest rate, and pension scheme layer.
+    Calculates the present value of a lifetime annuity (Actuarial Value of a Lifetime Annuity).
+
+    Parameters:
+        alter (int): The age of the insured person.
+        sex (str): The gender of the insured person ("M" for male, "F" for female).
+        tafel (str): The mortality table used (e.g., "DAV2018", "RSA2018").
+        zins (float): The interest rate.
+        gebjahr (int, optional): The year of birth of the insured person.  Required for some mortality tables.
+        rentenbeginnalter (int, optional): The age at which the annuity begins.
+        schicht (int, optional): The layer of pension provision (default is 1). Represents the 3-layer model of German pension provision. 1 = Statutory pension, 2 = Occupational pension/Riester, 3 = Private provision.
+
+    Returns:
+        float: The present value of the lifetime annuity.
     """
-    # Check if the cache dictionary is initialized
     if cache is None:
         initialize_cache()
 
-    sKey = CreateCacheKey("Cx", Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
+    s_key = create_cache_key("Cx", alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
 
-    # Check if the value is already in the cache
-    if sKey in cache:
-        return cache[sKey]
+    if s_key in cache:
+        return cache[s_key]
     else:
-        vek = v_Cx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-        result = vek[Alter]
-
-        # Store the result in the cache
-        cache[sKey] = result
+        vek = v_cx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
+        result = vek[alter]
+        cache[s_key] = result
         return result
 
-def v_Nx(Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1):
+def v_nx(sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1):
     """
-    Calculates the 'Nx' vector, representing the present value of a life annuity due, contingent on survival to age x.
+    Calculates the vector of Nx values.
 
-    Parameters:
-        Sex (str): The sex of the annuitant ("M" for male, "F" for female).
-        Tafel (str): The mortality table being used (e.g., "DAV2018", "TVA2018"). Determines the survival probabilities.
-        Zins (float): The interest rate (as a decimal, e.g., 0.05 for 5%).
-        GebJahr (int, optional): The year of birth of the annuitant. Used in conjunction with the mortality table to determine survival probabilities. Defaults to None.
-        Rentenbeginnalter (int, optional): The age at which the annuity payments begin. Impacts the number of periods considered in the calculation. Defaults to None.
-        Schicht (int, optional): Indicates the layer (Schicht) of the German pension system (1, 2, or 3). This likely impacts the tax treatment or specific rules applied to the calculation. Defaults to 1.
+    Args:
+        sex (str): Gender ("M" for male, "F" for female).
+        tafel (str): Mortality table to use.
+        zins (float): Discount interest rate.
+        gebjahr (int, optional): Year of birth. Defaults to None.
+        rentenbeginnalter (int, optional): Age at which pension payments begin. Defaults to None.
+        schicht (int, optional): Layer of the pension system. Defaults to 1.
 
     Returns:
-        list: A list representing the 'Nx' vector. Each element of the list corresponds to the present value of a life annuity due contingent on survival to a given age. The list is indexed by age.
+        list[float]: A list of Nx values for each age up to max_Alter.
     """
     vek = [0.0] * max_Alter
-    v_Temp_Dx = v_Dx(-1, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-    vek[max_Alter - 1] = v_Temp_Dx[max_Alter - 1]
+    v_Temp_Dx = v_dx(-1, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
 
+    vek[max_Alter - 1] = v_Temp_Dx[max_Alter - 1]
     for i in range(max_Alter - 2, -1, -1):
         vek[i] = vek[i + 1] + v_Temp_Dx[i]
         vek[i] = round(vek[i], rund_Dx)
 
     return vek
 
-cache = {}  # Initialize the cache here
+cache = {}
 
-def Act_Nx(Alter: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_nx(alter: int, sex: str, tafel: str, zins: float, geb_jahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the probability that a person of age 'Alter' is still alive (Actuarial Function Nx).
+    Calculates the actuarial value 'Nx' representing the present value of a life annuity due, considering various actuarial and demographic parameters.
     """
-    # Check if the dictionary is initialized
-    if cache is None:
+    if not cache:
         initialize_cache()
 
-    sKey = CreateCacheKey("Nx", Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
+    s_key = create_cache_key("Nx", alter, sex, tafel, zins, geb_jahr, rentenbeginnalter, schicht)
 
-    # Check if the value already exists in the cache
-    if sKey in cache:
-        return cache[sKey]
+    if s_key in cache:
+        return cache[s_key]
     else:
-        vek = v_Nx(Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-        result = vek[Alter]
-
-        # Store the result in the cache
-        cache[sKey] = result
+        vek = v_nx(sex, tafel, zins, geb_jahr, rentenbeginnalter, schicht)
+        result = vek[alter]
+        cache[s_key] = result
         return result
 
-def v_Mx(Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1):
+def v_mx(sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1):
     """
-    Calculates the 'Mx' vector, representing the present value of a life annuity due, considering various actuarial parameters.
+    Calculates the ‘Mx’ vector for actuarial calculations.
 
-    Parameters:
-        Sex (str): The sex of the individual ('M' for male, 'W' for female). This impacts mortality assumptions.
-        Tafel (str): The mortality table to use for calculations (e.g., 'DAV2018', 'TGV2018'). Specifies the expected lifespan based on sex.
-        Zins (float): The interest rate used for present value calculations. A key factor in determining the value of future payments.
-        GebJahr (int, optional): The year of birth of the individual. May be used in conjunction with the 'Tafel' to refine mortality assumptions. Defaults to None.
-        Rentenbeginnalter (int, optional): The age at which the annuity payments begin. Impacts the number of payments to be discounted. Defaults to None.
-        Schicht (int, optional): Indicates the layer of the German pension system (1, 2, or 3). This parameter influences the calculation context, potentially impacting tax or benefit considerations. Defaults to 1.
+    Args:
+        sex (str): The sex of the annuitant ("M" or "F").
+        tafel (str): The name or identifier of the mortality table.
+        zins (float): The interest rate.
+        gebjahr (int, optional): The year of birth. Defaults to None.
+        rentenbeginnalter (int, optional): The age at which annuity payments begin. Defaults to None.
+        schicht (int, optional): The layer of the German pension system. Defaults to 1.
 
     Returns:
-        list: A list ('vek') containing the calculated 'Mx' values for each age up to 'max_Alter'. Each element represents the present value of remaining life years from that age onwards. Values are rounded to 'rund_Mx' decimal places.
+        list: The ‘Mx’ vector as a list.
     """
+    # Assuming max_Alter and rund_Mx are defined as global constants
+    global max_Alter, rund_Mx  # Accessing global constants
+
     vek = [0.0] * (max_Alter + 1)
-    
-    v_Temp_Cx = v_Cx(-1, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-    
+
+    v_Temp_Cx = v_cx(-1, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
+
     vek[max_Alter] = v_Temp_Cx[max_Alter]
     for i in range(max_Alter - 1, -1, -1):
         vek[i] = vek[i + 1] + v_Temp_Cx[i]
         vek[i] = round(vek[i], rund_Mx)
-    
+
     return vek
 
-cache = {}  # Initialize the cache dictionary
+cache = {}
 
-def Act_Mx(Alter: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_mx(alter: int, sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the present value of the life insurance function Mx for a given age.
-    """
-    # Check if the cache is initialized
-    if not cache:
-        initialize_cache()
-
-    sKey = CreateCacheKey("Mx", Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-
-    # Check if the value is already in the cache
-    if sKey in cache:
-        return cache[sKey]
-    else:
-        vek = v_Mx(Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-        result = vek[Alter]
-
-        # Store the result in the cache
-        cache[sKey] = result
-        return result
-
-def v_Rx(Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1):
-    """
-    Calculates the vector 'Rx', representing the present value of a life annuity-due, crucial for pension benefit calculations.
+    Calculates the actuarial present value factor 'Mx' for a given age, sex, mortality table, interest rate, and pension scheme layer.
+    This function utilizes caching to improve performance by storing previously calculated values.
 
     Parameters:
-        Sex (str): Gender of the annuitant ("M" for male, "W" for female). Influences mortality rates used in the underlying calculation.
-        Tafel (str): Mortality table identifier. Specifies the mortality table used to determine probabilities of survival. Different tables reflect different population characteristics and assumptions.
-        Zins (float): Interest rate (as a decimal). Used to discount future cash flows to their present value.
-        GebJahr (int, optional): Year of birth of the annuitant. May be used in conjunction with the 'Tafel' to select the appropriate mortality rates. Defaults to None.
-        Rentenbeginnalter (int, optional): Age at which the annuity payments begin. Determines the length of the annuity period. Defaults to None.
-        Schicht (int, optional): The layer of the German pension system (1, 2, or 3). Defaults to 1. This parameter may influence the specific calculation logic or assumptions used, reflecting the different rules governing each layer (gesetzliche Rente, betriebliche Altersvorsorge, private Vorsorge).
+        alter (int): The age for which to calculate the actuarial factor. Integer. Must be a valid age within the bounds of the mortality table.
+        sex (str): The sex of the individual. String. Expected values are likely "M" for male and "F" for female. Case sensitivity may be important.
+        tafel (str): The mortality table to use. String. This identifies the specific life table used for calculating probabilities of survival.
+        zins (float): The interest rate to use for discounting future payments. Double. Expressed as a decimal (e.g., 0.05 for 5%).
+        gebjahr (int, optional): The year of birth. Integer. May be used in conjunction with the mortality table to determine the relevant life expectancy.
+        rentenbeginnalter (int, optional): The age at which the pension begins. Integer. Used for calculating the duration of payments and therefore impacts the present value factor.
+        schicht (int, optional): The layer (Schicht) of the German pension system. Integer. Default is 1. This parameter likely influences the calculation based on the specific rules governing that layer (e.g., statutory pension, company pension, private pension).
 
     Returns:
-        list[float]: A list representing the 'Rx' vector. Each element of the vector corresponds to the present value of a life annuity-due paid at a specific age, starting from 'Rentenbeginnalter' and continuing until the maximum age ('max_Alter'). The values are rounded to a specified decimal place ('rund_Rx').
+        float: The actuarial present value factor 'Mx' as a Double. This factor is used to calculate the present value of a future pension payment.
     """
-    # erzeugt Vektor der Rx
-    vek = [0.0] * max_Alter
+    if cache is None:
+        initialize_cache()
 
-    v_Temp_Mx = v_Mx(Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
+    s_key = create_cache_key("Mx", alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
 
-    vek[max_Alter - 1] = v_Temp_Mx[max_Alter - 1]
-    for i in range(max_Alter - 2, -1, -1):
-        vek[i] = vek[i + 1] + v_Temp_Mx[i]
+    if s_key in cache:
+        return cache[s_key]
+    else:
+        vek = v_mx(sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
+        result = vek[alter]
+        cache[s_key] = result
+        return result
+
+def v_rx(sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> list:
+    """
+    Calculates the vector of 'Rx' values, representing the present value of a life annuity due for each age.
+
+    Parameters:
+        sex (str): The sex of the annuitant ("m" for male, "w" for female). This influences mortality rates and therefore annuity calculations.
+        tafel (str): The mortality table to use for calculating life expectancy. Different tables represent different population demographics and impact calculations.
+        zins (float): The interest rate used for discounting future payments. Higher interest rates reduce the present value of the annuity.
+        gebjahr (int, optional): The year of birth of the annuitant. Used in conjunction with 'Tafel' to determine relevant mortality rates for specific ages.
+        rentenbeginnalter (int, optional): The age at which the annuity payments begin. This impacts the number of payments and their present value.
+        schicht (int, optional): Indicates the layer (Schicht) of the German pension system the calculation applies to. Defaults to 1. This parameter likely influences the specific annuity assumptions or factors used (e.g., different mortality tables or risk adjustments for each layer - 1st layer = statutory pension, 2nd layer = company/Riester, 3rd layer = private).
+
+    Returns:
+        list: A list containing the calculated 'Rx' values for each age from 0 to 'max_Alter'. Each element 'vek(i)' represents the present value of an annuity-due at age 'i'. The values are rounded to 'rund_Rx' decimal places.
+    """
+    vek = [0.0] * (max_Alter + 1)
+
+    v_temp_mx = v_mx(sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
+
+    vek[max_Alter] = v_temp_mx[max_Alter]
+    for i in range(max_Alter - 1, -1, -1):
+        vek[i] = vek[i + 1] + v_temp_mx[i]
         vek[i] = round(vek[i], rund_Rx)
 
     return vek
 
 cache = {}  # Initialize the cache dictionary
 
-def Act_Rx(Alter: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_rx(alter: int, sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the actuarial present value factor 'Rx' for a given age, sex, mortality table, interest rate, and pension scheme layer.
+    Calculates the actuarial present value factor (Rx) for a given age, sex, mortality table, interest rate, and pension scheme layer.
+
+    Parameters:
+        alter (int): The age for which to calculate the present value factor.
+        sex (str): The sex of the annuitant ("M" for male, "F" for female).
+        tafel (str): The mortality table to use (e.g., "DAV2018").
+        zins (float): The interest rate used for the present value calculation.
+        gebjahr (int, optional): The year of birth. Used in conjunction with the mortality table to determine life expectancy.
+        rentenbeginnalter (int, optional): The age at which the pension begins.
+        schicht (int, optional): The layer of the German pension system (1, 2, or 3). Defaults to 1.
+
+    Returns:
+        float: The actuarial present value factor (Rx).
     """
-    # Check if the cache has been initialized
+
+    # Check if the cache is initialized
     if cache is None:
         initialize_cache()
 
-    sKey = CreateCacheKey("Rx", Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
+    s_key = create_cache_key("Rx", alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
 
-    # Check if the value is already in the cache
-    if sKey in cache:
-        return cache[sKey]
+    # Check if the value already exists in the cache
+    if s_key in cache:
+        return cache[s_key]
     else:
-        vek = v_Rx(Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-        result = vek[Alter]
+        vek = v_rx(sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
+        result = vek[alter]
 
         # Store the result in the cache
-        cache[sKey] = result
+        cache[s_key] = result
+
         return result
 
-def Act_Altersberechnung(GebDat, BerDat, Methode):
+def act_altersberechnung(gebdat: date, berdat: date, methode: str) -> int:
     """
-    Calculates age based on a given date of birth and a reference date, 
-    using either the calendar year method or the half-year method.
-
-    Parameters:
-        GebDat (date): The date of birth.
-        BerDat (date): The reference date.
-        Methode (str): The calculation method ("K" for calendar year, otherwise half-year).
-
-    Returns:
-        int: The calculated age in years.
+    Calculates age based on date of birth and reference date using either
+    the calendar year method or the half-year method.
     """
-    if Methode != "K":
-        Methode = "H"
+    if methode <> "K":
+        methode = "H"
 
-    J_GD = GebDat.year
-    J_BD = BerDat.year
-    M_GD = GebDat.month
-    M_BD = BerDat.month
+    j_gd = gebdat.year
+    j_bd = berdat.year
+    m_gd = gebdat.month
+    m_bd = berdat.month
 
-    if Methode == "K":
-        return J_BD - J_GD
-    else:  # Methode == "H"
-        return int(J_BD - J_GD + 1 / 12 * (M_BD - M_GD + 5))
+    if methode == "K":
+        return j_bd - j_gd
+    elif methode == "H":
+        return int(j_bd - j_gd + 1 / 12 * (m_bd - m_gd + 5))
+    else:
+        return int(j_bd - j_gd + 1 / 12 * (m_bd - m_gd + 5))
 
 def create_cache_key(art: str, alter: int, sex: str, tafel: str, zins: float, geb_jahr: int, rentenbeginnalter: int, schicht: int) -> str:
     """
-    Creates a unique key for caching pension calculation results. This key is constructed from the input parameters, allowing the macro to efficiently retrieve previously calculated values instead of recomputing them.
+    Creates a unique key for caching pension calculation results. This key is composed of the input parameters, 
+    allowing the macro to efficiently store and retrieve previously calculated values, avoiding redundant computations.
 
     Parameters:
-    - art (str): String representing the type of pension calculation. (e.g., "Rentenberechnung", "Kapitalberechnung").
-    - alter (int): Integer representing the current age of the person.
-    - sex (str): String representing the sex of the person ("m" for male, "w" for female).
-    - tafel (str): String representing the mortality table used for the calculation. Different tables represent varying life expectancy assumptions.
-    - zins (float): Double representing the interest rate used in the calculation.
-    - geb_jahr (int): Integer representing the year of birth.
-    - rentenbeginnalter (int): Integer representing the age at which the pension begins.
-    - schicht (int): Integer representing the pension pillar/layer (Schicht) being calculated. This relates to the German three-pillar pension system (1st, 2nd, or 3rd layer).
+    - art (str): String representing the type of pension calculation (e.g., "Riester", "gesetzlich", "betrieblich").
+    - alter (int): Integer representing the current age of the individual.
+    - sex (str): String representing the gender of the individual ("m" for male, "w" for female, or other relevant codes).
+    - tafel (str): String identifying the mortality table (Lebensdauer-Tafel) used in the calculation. Different tables represent different demographic assumptions.
+    - zins (float): Double representing the interest rate used for discounting future cash flows.
+    - geb_jahr (int): Integer representing the year of birth of the individual.
+    - rentenbeginnalter (int): Integer representing the age at which the pension payments begin.
+    - schicht (int): Integer representing the pension "layer" (Schicht) according to the German three-layer pension system (1, 2, or 3). This categorizes the type of pension provision.
 
     Returns:
-    - A string representing the unique cache key.
+    - A string that uniquely identifies the combination of input parameters. This key is used for caching.
 
     Remarks:
-    This function is crucial for performance optimization. By generating a unique key based on the input parameters, the macro can store and retrieve results from a cache (e.g., a Dictionary object) instead of recalculating them repeatedly. The underscore "_" is used as a delimiter to create a readable and easily parsable key.
+    This function is crucial for optimizing performance within the larger pension calculation macro. 
+    By creating a unique key based on all relevant input parameters, the macro can store and retrieve results from a cache, 
+    avoiding the need to recalculate the same pension value repeatedly. The underscore "_" is used as a delimiter 
+    to ensure a valid and easily parsable key. Understanding the German pension system's 3-Schichten-Modell is helpful 
+    to interpreting the meaning of the 'Schicht' parameter.
     """
     return f"{art}_{alter}_{sex}_{tafel}_{zins}_{geb_jahr}_{rentenbeginnalter}_{schicht}"
 
-def Act_ax_k(Alter: int, Sex: str, Tafel: str, Zins: float, k: int, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_ax_k(alter: int, sex: str, tafel: str, zins: float, k: int, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the factor 'ax_k' for converting pension claims.
-    """
-    if k > 0:
-        Act_ax_k = Act_Nx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) / Act_Dx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) - Act_Abzugsglied(k, Zins)
-    else:
-        Act_ax_k = 0
-    return Act_ax_k
-
-def Act_axn_k(Alter: int, n: int, Sex: str, Tafel: str, Zins: float, k: int, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
-    """
-    Calculates the factor axn,k, which indicates the probability that a person
-    will still be alive at age 'Alter' and die 'n' years later, reduced by a
-    deduction. This factor is used in the calculation of annuities and life
-    insurance.
-
-    Parameters:
-    - Alter (int): The current age of the person in years.
-    - n (int): The number of years into the future to consider.
-    - Sex (str): The gender of the person ("m" for male, "w" for female).
-    - Tafel (str): The mortality table used (e.g., DAV, HAB).
-    - Zins (float): The interest rate as a decimal (e.g., 0.05 for 5%).
-    - k (int): A parameter that indicates the number of periods for a specific
-      annuity or insurance. If k <= 0, the return value is 0.
-    - GebJahr (int, optional): The year of birth of the person. May be used
-      in the called functions.
-    - Rentenbeginnalter (int, optional): The age at which the annuity is to
-      begin. May be used in the called functions.
-    - Schicht (int, optional): The layer of pension provision (1, 2 or 3).
-      This serves to distinguish between different pension areas. Default
-      value is 1.
-
-    Returns:
-    - The calculated factor axn,k as a float. Returns 0 if k is less than or
-      equal to 0.
+    Calculates the actuarial function 'ax_k', representing the present value of a whole life insurance benefit payable at the beginning of the year of death, adjusted by a factor 'k'.
     """
     if k > 0:
-        return (Act_Nx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) - Act_Nx(Alter + n, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)) / Act_Dx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) - Act_Abzugsglied(k, Zins) * (1 - Act_Dx(Alter + n, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) / Act_Dx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht))
+        return act_nx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) / act_dx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) - act_abzugsglied(k, zins)
     else:
         return 0
 
-def Act_nax_k(Alter: int, n: int, Sex: str, Tafel: str, Zins: float, k: int, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_axn_k(alter: int, n: int, sex: str, tafel: str, zins: float, k: int, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the present value of a deferred annuity that begins in 'n' years,
-    taking into account gender, age, mortality table, interest rate, and a deduction factor 'k'.
+    Calculates a factor used in actuarial calculations, specifically relating to the present value of a life annuity-due with increasing payments.
+    
+    Parameters:
+    - alter (int): The current age of the individual.
+    - n (int): The number of years for which the annuity is paid.
+    - sex (str): The gender of the individual ("M" for male, "F" for female, or potentially other codes).
+    - tafel (str): Identifier for the mortality table used in the calculations.
+    - zins (float): The interest rate used for discounting future payments.
+    - k (int): A reduction factor applied to the annuity.
+    - gebjahr (int, optional): The year of birth of the individual. Defaults to None.
+    - rentenbeginnalter (int, optional): The age at which the annuity payments begin. Defaults to None.
+    - schicht (int, optional): Represents a layer within the German pension system. Defaults to 1.
+    
+    Returns:
+    - float: The calculated actuarial factor 'axn_k'. Returns 0 if 'k' is 0.
     """
     if k > 0:
-        Act_nax_k = Act_Dx(Alter + n, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) / Act_Dx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) * act_ax_k(Alter + n, Sex, Tafel, Zins, k, GebJahr, Rentenbeginnalter, Schicht)
+        act_axn_k = (act_nx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) - act_nx(alter + n, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)) / act_dx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) - act_abzugsglied(k, zins) * (1 - act_dx(alter + n, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) / act_dx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht))
     else:
-        Act_nax_k = 0
-    return Act_nax_k
+        act_axn_k = 0
+    return act_axn_k
 
-def Act_nGrAx(Alter: int, n: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_nax_k(alter: int, n: int, sex: str, tafel: str, zins: float, k: int, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the average present value of a life annuity-due of amount 1,
-    payable for 'n' years, starting at age 'Alter' + 'n'.
+    Calculates a factor used in actuarial calculations, specifically relating to the present value
+    of a life annuity due to begin 'n' years from a given age.
     """
-    return (Act_Mx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) - Act_Mx(Alter + n, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)) / Act_Dx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
+    if k > 0:
+        return act_dx(alter + n, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) / act_dx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) * act_ax_k(alter + n, sex, tafel, zins, k, gebjahr, rentenbeginnalter, schicht)
+    else:
+        return 0
 
-def Act_nGrEx(Alter: int, n: int, Sex: str, Tafel: str, Zins: float, GebJahr: int = None, Rentenbeginnalter: int = None, Schicht: int = 1) -> float:
+def act_ngr_ax(alter: int, n: int, sex: str, tafel: str, zins: float, gebjahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
     """
-    Calculates the growth rate of the death probability (q<sub>x</sub>) over 'n' years.
-    This function determines how the likelihood of death changes between ages 'Alter' and 'Alter + n'.
-    It is a core component in actuarial calculations related to life insurance and pension benefit estimations.
-    """
-    return Act_Dx(Alter + n, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht) / Act_Dx(Alter, Sex, Tafel, Zins, GebJahr, Rentenbeginnalter, Schicht)
-
-def Act_ag_k(g: int, Zins: float, k: int) -> float:
-    """
-    Calculates a factor used in actuarial calculations.
+    Calculates the average present value of a life annuity-due with a period of 'n' years.
 
     Parameters:
-    g (int): The number of periods.
-    Zins (float): The interest rate per period.
-    k (int): A parameter controlling the size of a deduction.
+        alter (int): The current age of the individual.
+        n (int): The number of years for which the annuity is paid.
+        sex (str): The gender of the individual ("M" for male, "F" for female).
+        tafel (str): The mortality table used for calculations.
+        zins (float): The interest rate used for present value calculations.
+        gebjahr (int, optional): The year of birth of the individual. Defaults to None.
+        rentenbeginnalter (int, optional): The age at which the annuity payments begin. Defaults to None.
+        schicht (int, optional): A layer within the German pension system. Defaults to 1.
 
+    Returns:
+        float: The calculated average present value of the annuity-due.
+    """
+    return (act_mx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht) - act_mx(alter + n, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)) / act_dx(alter, sex, tafel, zins, gebjahr, rentenbeginnalter, schicht)
+
+def act_ngr_ex(alter: int, n: int, sex: str, tafel: str, zins: float, geb_jahr: int = None, rentenbeginnalter: int = None, schicht: int = 1) -> float:
+    """
+    Calculates the growth rate of the death probability (qx) over a period of 'n' years.
+
+    Parameters:
+        alter (int): The current age of the individual.
+        n (int): The number of years into the future to calculate the growth rate.
+        sex (str): The sex of the individual ("M" for male, "F" for female).
+        tafel (str): The mortality table being used.
+        zins (float): The interest rate used in the calculation.
+        geb_jahr (int, optional): The year of birth. Defaults to None.
+        rentenbeginnalter (int, optional): The age at which a pension or annuity begins. Defaults to None.
+        schicht (int, optional): Indicates the layer of the German pension system. Defaults to 1.
+
+    Returns:
+        float: The growth rate of the death probability (qx) over 'n' years.
+    """
+    return act_dx(alter + n, sex, tafel, zins, geb_jahr, rentenbeginnalter, schicht) / act_dx(alter, sex, tafel, zins, geb_jahr, rentenbeginnalter, schicht)
+
+def act_ag_k(g: int, zins: float, k: int) -> float:
+    """
+    Calculates a factor used in actuarial calculations, specifically related to the present value of an increasing annuity.
+    
+    Parameters:
+    g (int): The period or duration over which the annuity is paid.
+    zins (float): The interest rate (expressed as a decimal).
+    k (int): A factor influencing the calculation.
+    
     Returns:
     float: The calculated factor.
     """
-    v = 1 / (1 + Zins)
+    v = 1 / (1 + zins)
     if k > 0:
-        if Zins > 0:
-            Act_ag_k = (1 - v ** g) / (1 - v) - Act_Abzugsglied(k, Zins) * (1 - v ** g)
+        if zins > 0:
+            return (1 - v ** g) / (1 - v) - act_abzugsglied(k, zins) * (1 - v ** g)
         else:
-            Act_ag_k = g
+            return g
     else:
-        Act_ag_k = 0
-    return Act_ag_k
+        return 0
 
-def Act_Abzugsglied(k: int, Zins: float) -> float:
+def act_abzugsglied(k: int, zins: float) -> float:
     """
     Calculates the 'Abzugsglied' (reduction factor) used in actuarial calculations.
 
-    Parameters:
-    k (int): The number of periods or years over which the reduction applies.
-    Zins (float): The interest rate.
+    Args:
+        k (int): The number of years or periods.
+        zins (float): The interest rate.
 
     Returns:
-    float: The calculated 'Abzugsglied'. Returns 0 if k is not positive.
+        float: The calculated 'Abzugsglied' (reduction factor).
     """
-    Act_Abzugsglied = 0
+    act_abzugsglied = 0.0
     if k > 0:
         for l in range(k):
-            Act_Abzugsglied = Act_Abzugsglied + l / k / (1 + l / k * Zins)
-        Act_Abzugsglied = Act_Abzugsglied * (1 + Zins) / k
-    return Act_Abzugsglied
+            act_abzugsglied = act_abzugsglied + l / k / (1 + l / k * zins)
+        act_abzugsglied = act_abzugsglied * (1 + zins) / k
+    return act_abzugsglied

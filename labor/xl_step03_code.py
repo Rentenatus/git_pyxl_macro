@@ -43,12 +43,14 @@ class Step03(Runnable):
                 continue
             print(idx,":  ",meaning,"(",params,")")
             code = row.code
+            own_sign = row.signatur
             used = row.local_used
             doc_block = row.doc_block
             start = time.time()
             calls = find_calls_in_code(meaning, code, sign_dict)
             print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ response code:")
-            py_block = request_dev(label=meaning, code=code, doc_block=doc_block, var_code_py=py_code_start, sign_py = calls, names=used)
+            py_block = request_dev(label=meaning, code=code, doc_block=doc_block, var_code_py=py_code_start,
+                                   sign_py = calls, own_sign = own_sign, names=used)
             end = time.time()
             all_df.at[idx, "code_duration"] = int((end - start) * 1000)
             all_df.at[idx, "model_code"] = PROMPT_MODEL_CODE
