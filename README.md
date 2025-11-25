@@ -1,7 +1,8 @@
 # git_pyxl_macro
 Tool zur Migration von VBA-Referenzrechnern in Excel in Python-Services, die ebenfalls Excel als Einngabe- und Ausgabemedium benutzen.
 
-
+Vielen Dank an Bartlomiej Maciagaund und Dr. Arno Rasch für deren Repo https://github.com/bartlmac/portxlpy .
+Ich verwende deren Tarifrechner_KLV.xlsm als das zu untersuchende Objekt.
 
 # Motivation
 DORA definiert, was an digitaler Resilienz erreicht werden muss – aber nicht, wie die Umsetzung konkret auszusehen hat. Dieses Projekt unterstützt dabei, bestehende VBA-Referenzrechner aus der „Individualsoftware-Ecke“ herauszuholen und in eine strukturierte, versionierbare und auditierbare Python-Codebasis zu überführen.
