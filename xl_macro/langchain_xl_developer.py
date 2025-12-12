@@ -46,9 +46,17 @@ def get_excel_global(key: str):
     return cell.value"""
 
 BASE_URL = "http://127.0.0.1:11434"
+
+# PromptModel: Modelle für die verschiedenen Aufgaben
+#############################################################################
 PROMPT_MODEL_DOC = "gemma3:27b"
 PROMPT_MODEL_SIGN = "gemma3:27b"
-PROMPT_MODEL_CODE = "gemma3:27b"
+PROMPT_MODEL_CODE = "devstral-small-2:24b"
+
+# Probiere es mit verschiedenen Modellen mal aus:
+# PROMPT_MODEL_DOC = "gpt-oss:20b"
+# PROMPT_MODEL_SIGN = "qwen2.5-coder:32b"
+# PROMPT_MODEL_CODE = "gemma3:27b"
 
 # Systemprompt: Rollenbeschreibung
 #############################################################################
