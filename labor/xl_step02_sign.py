@@ -7,9 +7,11 @@ https://github.com/Rentenatus/py_yahtzee?tab=Apache-2.0-1-ov-file#readme
 """
 
 import time
+import pandas as pd
 from labor import Runnable
 from xl_macro.dataframe_utils import save_dataframe_as, load_dataframe
 from xl_macro.langchain_xl_developer import request_sign, PROMPT_MODEL_SIGN
+from xl_macro.py_code_utils import code_extract
 
 
 class Step02(Runnable):
@@ -31,8 +33,8 @@ class Step02(Runnable):
             if meaning.startswith("++"):
                 py_block = row.py_block
                 doc_block = row.doc_block
-                py_code_start  = py_code_start + py_block
-                py_doc_start = py_doc_start + doc_block
+                if pd.notna(py_block): py_code_start  = py_code_start + code_extract(py_block)
+                if pd.notna(doc_block): py_doc_start = py_doc_start + doc_block
 
         for idx, row in all_df.iterrows():
             meaning = row.meaning

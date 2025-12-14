@@ -227,6 +227,14 @@ from excel_globals import xl_workbook, xl_names, get_excel_global
 
 You will translate it into Python code. Limit yourself to this one method. 
 Method line begins with 'def' followed by the method name. 
+When using global variables, remember to include the keyword "global" in the method, e.g.:
+'''python
+def my_function():
+    global global_var = []
+    # function body
+'''
+
+
 Please use this signature:
 {signature}
 
