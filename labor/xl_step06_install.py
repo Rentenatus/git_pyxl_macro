@@ -11,11 +11,11 @@ import shutil
 from labor import Runnable
 
 
-class Step05(Runnable):
+class Step06(Runnable):
 
     def __init__(self):
         super().__init__()
-        print("Step 05: Install python code.")
+        print("Step 06: Install python code.")
 
     def run(self):
         py_file = "assets/output/xl_recombined.py"
@@ -40,5 +40,5 @@ class Step05(Runnable):
 
 
 if __name__ == "__main__":
-    step = Step05()
+    step = Step06()
     step.run()

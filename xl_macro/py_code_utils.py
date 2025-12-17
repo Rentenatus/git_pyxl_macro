@@ -9,6 +9,41 @@ https://github.com/Rentenatus/py_yahtzee?tab=Apache-2.0-1-ov-file#readme
 
 
 import re
+import os
+import openpyxl
+from openpyxl.worksheet.formula import ArrayFormula
+
+
+def extract_cell_formulas(xlsm_path: str) -> dict:
+    """
+    Läuft über alle Blätter und Zellen einer Excel-Datei (.xlsm)
+    und sammelt alle Formeln in einem Dict.
+    Key = Zellenkoordinate (z.B. 'A1'), Value = Formelstring.
+    """
+    wb = openpyxl.load_workbook(xlsm_path, data_only=False)  # data_only=False => Formeln statt Werte
+    formulas = {}
+
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows():
+            for cell in row:
+                fkt_code = None
+                value_type = ""
+                if cell.value and isinstance(cell.value, str) and cell.value.startswith("="):
+                    fkt_code = str(cell.value)
+                    value_type = "str"
+                elif cell.value and isinstance(cell.value, ArrayFormula):
+                    fkt_code = cell.value.text
+                    value_type = "ArrayFormula"
+
+                if fkt_code is None:
+                    continue
+
+                sheet_title = sheet.title
+                coord = f"{sheet.title}!{cell.coordinate}"
+                fkt_name = f"fkt_{sheet.title}_{cell.coordinate}".lower()
+                formulas[coord] = (sheet_title, coord, value_type, fkt_name, fkt_code)
+
+    return formulas
 
 def code_extract(text: str) -> str:
     """
