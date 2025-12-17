@@ -41,7 +41,7 @@ def extract_cell_formulas(xlsm_path: str) -> dict:
                 sheet_title = sheet.title
                 coord = f"{sheet.title}!{cell.coordinate}"
                 fkt_name = f"fkt_{sheet.title}_{cell.coordinate}".lower()
-                formulas[coord] = (sheet_title, coord, value_type, fkt_name, fkt_code)
+                formulas[coord] = (sheet_title, coord, value_type, fkt_name, "'''"+fkt_code+"'''")
 
     return formulas
 

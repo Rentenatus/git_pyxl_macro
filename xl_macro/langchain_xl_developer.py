@@ -11,7 +11,7 @@ from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.prompts import PromptTemplate
 
-CELL_VALUE = """from openpyxl import Workbook
+CELL_NAME_VALUE = """from openpyxl import Workbook
 from openpyxl.utils import range_boundaries
 
 xl_workbook: Workbook # The Excel workbook object
@@ -44,6 +44,32 @@ def get_excel_global(key: str):
     sheet = xl_workbook[sheet_name]
     cell = sheet[cell_ref]
     return cell.value"""
+
+
+CELL_VALUE = """
+def get_cell_value(ref: str):
+    try:
+        sheet_name, cell_ref = ref.split("!", 1)
+        return get_cell_value2(sheet_name, cell_ref)
+    except ValueError:
+        raise ValueError(f"Ungültiges Format: {ref}. Erwartet 'Sheet!Cell'.")
+
+
+def get_cell_value2(sheet_name: str, cell_ref: str):
+    # Funktionsname nach deinem Schema konstruieren
+    func_name = f"fkt_{sheet_name.lower()}_{cell_ref.lower()}"
+
+    # Prüfen, ob die Funktion existiert
+    if func_name in globals():
+        return globals()[func_name]()
+    else:
+        # Wert direkt aus Excel lesen
+        sheet = xl_workbook[sheet_name]
+        return sheet[cell_ref].value
+        
+"""
+
+
 
 BASE_URL = "http://127.0.0.1:11434"
 
@@ -86,7 +112,7 @@ Assume that this method '''def get_excel_global(key: str):''' is already defined
 The user gives you individual code pieces step by step, either a declaration or a method, and if available, a description from the requirements.
 
 You simply rewrite this piece into Python code. All your building blocks will later be assembled into a Python file. This will create a complete program.
-""" % CELL_VALUE
+""" % CELL_NAME_VALUE
 
 SYSTEM_PROMPT_DEV_VAR = """You are an expert software developer and are currently translating a piece of VBA code into Python.
 

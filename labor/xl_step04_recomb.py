@@ -9,7 +9,7 @@ https://github.com/Rentenatus/py_yahtzee?tab=Apache-2.0-1-ov-file#readme
 import pandas as pd
 from labor import Runnable
 from xl_macro.dataframe_utils import load_dataframe
-from xl_macro.langchain_xl_developer import CELL_VALUE
+from xl_macro.langchain_xl_developer import CELL_NAME_VALUE, CELL_VALUE
 from xl_macro.py_code_utils import code_extract, clean_import
 
 
@@ -47,7 +47,7 @@ class Step04(Runnable):
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-        text = py_code_import + "\n\n" + CELL_VALUE + "\n\n" + py_code_vars + "\n\n" + py_code_methods
+        text = py_code_import + "\n\n" + CELL_NAME_VALUE+ "\n\n" + CELL_VALUE + "\n\n" + py_code_vars + "\n\n" + py_code_methods
         text = text.replace("\n\n\n\n\n", "\n\n")
         text = text.replace("\n\n\n\n", "\n\n")
         text = text.replace("\n\n\n", "\n\n")

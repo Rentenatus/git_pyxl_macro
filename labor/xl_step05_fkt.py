@@ -42,7 +42,17 @@ class Step05(Runnable):
         # Sammle Formeln
         formulas = extract_cell_formulas(xlsm_path)
         print(f"Gefundene Formeln: {len(formulas)}")
-        # Beispielausgabe
+
+        fkt_column_types = {
+            "sheet_title": "string",
+            "coord": "string",
+            "value_type": "string",
+            "fkt_name": "string",
+            "fkt_code": "string",
+        }
+        fkt_df = pd.DataFrame(formulas.values(), columns=fkt_column_types.keys())
+        fkt_df = fkt_df.astype(fkt_column_types)
+
         for k, v in list(formulas.items()):
 
             fkt_code = v[4] # Index 4 enthält den VBA-Code der Funktion
@@ -58,9 +68,9 @@ class Step05(Runnable):
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-        #save_dataframe_as(all_df, "assets/output/xl_step05_fkt")
-        #all_df.to_excel("assets/output/xl_step05_fkt.xlsx", index=False, engine="openpyxl")
-        #print("Saved.")
+        save_dataframe_as(fkt_df, "assets/output/xl_step05_fkt")
+        fkt_df.to_excel("assets/output/xl_step05_fkt.xlsx", index=False, engine="openpyxl")
+        print("Saved.")
 
 
 if __name__ == "__main__":

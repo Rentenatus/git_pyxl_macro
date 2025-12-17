@@ -41,6 +41,26 @@ def get_excel_global(key: str):
     cell = sheet[cell_ref]
     return cell.value
 
+def get_cell_value(ref: str):
+    try:
+        sheet_name, cell_ref = ref.split("!", 1)
+        return get_cell_value2(sheet_name, cell_ref)
+    except ValueError:
+        raise ValueError(f"Ungültiges Format: {ref}. Erwartet 'Sheet!Cell'.")
+
+def get_cell_value2(sheet_name: str, cell_ref: str):
+    # Funktionsname nach deinem Schema konstruieren
+    func_name = f"fkt_{sheet_name.lower()}_{cell_ref.lower()}"
+
+    # Prüfen, ob die Funktion existiert
+    if func_name in globals():
+        return globals()[func_name]()
+    else:
+        # Wert direkt aus Excel lesen
+        sheet = xl_workbook[sheet_name]
+        return sheet[cell_ref].value
+        
+
 cache = None
 
 # -----------------------------------------------------------------------------
