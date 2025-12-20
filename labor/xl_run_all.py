@@ -10,7 +10,8 @@ import time
 from labor.xl_step01_var import Step01
 from labor.xl_step02_sign import Step02
 from labor.xl_step03_code import Step03
-from labor.xl_step04_recomb import Step04
+from labor.xl_step04_fkt import Step04
+from labor.xl_step05_recomb import Step05
 
 if __name__ == "__main__":
     print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ run all steps:")
@@ -22,6 +23,8 @@ if __name__ == "__main__":
     step = Step03()
     step.run()
     step = Step04()
+    step.run()
+    step = Step05()
     step.run()
     end = time.time()
     print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Ready.")

@@ -1,0 +1,12 @@
+{
+  "sheet_title": "string",
+  "coord": "string",
+  "value_type": "string",
+  "fkt_name": "string",
+  "fkt_code": "string",
+  "used_names": "object",
+  "used_meanings": "object",
+  "py_fkt": "object",
+  "model_code": "object",
+  "code_duration": "int64"
+}

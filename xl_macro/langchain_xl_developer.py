@@ -120,45 +120,35 @@ Global names, if used, can be retrieved using get_excel_global(key:str).
 
 Assume that this method '''def get_excel_global(key: str):''' is already defined in previous sections and usable now. Don't rewrite it. The code of this method is:
 '''
-from openpyxl import Workbook
-from openpyxl.utils import range_boundaries
-
-xl_workbook: Workbook # The Excel workbook object
-xl_names: dict [str, str] # The dictionary of named ranges
-
-def get_excel_global(key: str):
-    \"\"\"
-    Retrieves the value from the Excel workbook based on a named range key.
-
-    Parameters:
-    - key (str): The name of the range to look up.
-
-    Returns:
-    - The value of the cell referenced by the named range, or None if not found.
-    \"\"\"
-    if key not in xl_names:
-        raise KeyError(f"Key '{key}' not found in xl_names.")
-
-    ref = xl_names[key]  # e.g., 'Kalkulation!$E$6'
-    if '!' not in ref:
-        raise ValueError(f"Invalid reference format: '{ref}'")
-
-    sheet_name, cell_ref = ref.split('!')
-    sheet_name = sheet_name.strip("'")  # remove quotes if present
-    cell_ref = cell_ref.replace('$', '')  # remove dollar signs
-
-    if sheet_name not in xl_workbook.sheetnames:
-        raise ValueError(f"Worksheet '{sheet_name}' not found in workbook.")
-
-    sheet = xl_workbook[sheet_name]
-    cell = sheet[cell_ref]
-    return cell.value
+%s
 '''
 
 The user first gives you the definition of variables.
 
 You simply rewrite this piece into Python code. Each of your pieces is glued together in a Python file. This creates a complete program.
-"""
+""" % CELL_NAME_VALUE
+
+
+SYSTEM_PROMPT_DEV_FKT = """You are an expert software developer and are currently translating a piece of excel formula into Python.
+
+Global names, if used, can be retrieved using get_excel_global(key:str).
+
+Assume that this method '''def get_excel_global(key: str)''' is already defined in previous sections and usable now. Don't rewrite it. The code of this method is:
+'''
+%s
+'''
+
+Cell values can be retrieved using the function get_cell_value(ref:str).
+
+Assume that this method '''def get_cell_value(ref: str)''' is already defined in previous sections and usable now. Don't rewrite it. The code of this method is:
+'''
+%s
+'''
+
+The user first gives you the definition of excel function.
+
+You simply rewrite this piece into Python code. All blocks will later be assembled into a Python file.
+""" % (CELL_NAME_VALUE, CELL_VALUE)
 
 # PromptTemplate für den Code
 #############################################################################
@@ -294,6 +284,45 @@ You will translate it into Python code. Limit yourself to this variable. The VBA
 '''
 """
 
+#  PromptTemplate für den Userprompt für das Development, um die Excelformel zu erzeugen.
+#  ----------------------------------------------------------------------------
+USER_PROMPT_TEMPLATE_DEV_FKT = """
+{text_call_following_functions}
+{functions_block}
+
+The following names are used in this method:
+{names_block}
+
+You could define local variables with the following code:
+'''python
+{local_variables}
+'''
+
+To access cells from the formula, you use this method get_cell_value(ref: str), imported from excel_globals. 
+It automatically checks whether it's a value or another formula. You can rely on it.
+ref has the formatting "sheet!cell".
+Example:
+'''python
+    value = get_cell_value("{cell_ref}")
+'''
+
+The Python code already starts with this import:
+'''python
+from excel_globals import *
+'''
+
+Your task is to generate the formula into Python. Just that one formula!. 
+This line begins with 'def' followed by the method name '{method_name}' in python style: 
+The excel formula code reads:
+
+{formel_code}
+
+"""
+
+TEXT_CALL_FOLLOWING_FUNCTIONS = """
+You can call the following functions in your code. They are already implemented in excel_globals:
+"""
+
 # Anmerkung: Ohne "Start the python code with this import:" wird das LLama immer Angst haben unperfekt zu sein
 # und die Methode get_excel_global rezitieren.
 # Da es mit einem Import beginnen soll, ist es mutiger und schreibt nur und nur den angefragten Code.
@@ -410,3 +439,33 @@ def request_sign(label: str, code: str, doc_block: str, var_code_py: str, names:
     response = get_response(messages, model=PROMPT_MODEL_SIGN)
     return response
 
+def prompt_dev_fkt(cell_ref: str, formel_code: str, method_name: str,
+                   names, used_meanings) -> list:
+    names_block = names if names else "None"
+    local_variables = [] if names else ["    local_variable = get_excel_global('local_variable')"]
+    for name in names:
+        local_variables.append(f"    {name} = get_excel_global('{name}')")
+    functions_block = used_meanings if used_meanings else ""
+    text_call = TEXT_CALL_FOLLOWING_FUNCTIONS if used_meanings else ""
+    user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DEV_FKT).format(
+        text_call_following_functions = text_call,
+        functions_block = functions_block,
+        names_block = names_block,
+        local_variables = local_variables,
+        cell_ref = cell_ref,
+        formel_code = formel_code,
+        method_name = method_name
+    )
+
+    # Promptliste mit Konversationsverlauf
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT_DEV_FKT),
+        HumanMessage(content=user_prompt)
+    ]
+    return messages
+
+def request_dev_fkt(cell_ref: str, formel_code: str, method_name: str,
+                   names, used_meanings) -> str:
+    messages = prompt_dev_fkt(cell_ref, formel_code, method_name, names, used_meanings)
+    response = get_response(messages, model=PROMPT_MODEL_CODE)
+    return response
