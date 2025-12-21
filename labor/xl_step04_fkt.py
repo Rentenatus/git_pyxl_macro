@@ -12,11 +12,12 @@ import time
 import pandas as pd
 from labor import Runnable
 from xl_macro.dataframe_utils import save_dataframe_as, load_dataframe
+from xl_macro.langchain_xl_developer import PROMPT_MODEL_CODE, request_dev_fkt
 from xl_macro.py_code_utils import extract_cell_formulas
 from xl_macro.xl_macro_reader import read_named_ranges
 
 
-class Step05(Runnable):
+class Step04(Runnable):
 
     def __init__(self):
         super().__init__()
@@ -40,7 +41,7 @@ class Step05(Runnable):
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
         # Sammle Formeln
-        formulas = extract_cell_formulas(xlsm_path)
+        formulas = extract_cell_formulas(xlsm_path, named_ranges.keys(), sign_dict.keys())
         print(f"Gefundene Formeln: {len(formulas)}")
 
         fkt_column_types = {
@@ -49,30 +50,40 @@ class Step05(Runnable):
             "value_type": "string",
             "fkt_name": "string",
             "fkt_code": "string",
+            "used_names": "object",
+            "used_meanings": "object",
+
         }
         fkt_df = pd.DataFrame(formulas.values(), columns=fkt_column_types.keys())
         fkt_df = fkt_df.astype(fkt_column_types)
+        fkt_df["py_fkt"] = ""
+        fkt_df["model_code"] = ""
+        fkt_df["code_duration"] = -1
 
-        for k, v in list(formulas.items()):
-
-            fkt_code = v[4] # Index 4 enthält den VBA-Code der Funktion
-            used_names=[]
-            used_meanings=[]
-            for nr in named_ranges.keys():
-                if nr in str(fkt_code):  # robust: str() falls None
-                    used_names.append(nr)
-            for mean in sign_dict.keys():
-                if mean in str(fkt_code):
-                    used_meanings.append(mean)
-            print(k, "->", v, "  used names:", used_names, " used meanings:", used_meanings)
+        for idx, row in fkt_df.iterrows():
+            cell_ref = row.coord
+            formel_code = row.fkt_code
+            method_name = row.fkt_name
+            names = row.used_names
+            used_meanings = row.used_meanings
+            print(cell_ref, "->", row.value_type, ":", method_name, "using", len(used_meanings), "meanings.")
+            start = time.time()
+            print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ response function:")
+            response = request_dev_fkt(cell_ref, formel_code, method_name,names, used_meanings)
+            print(response)
+            print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ end response")
+            end = time.time()
+            fkt_df.at[idx, "code_duration"] = int((end - start) * 1000)
+            fkt_df.at[idx, "model_code"] = PROMPT_MODEL_CODE
+            fkt_df.at[idx, "py_fkt"] = response
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-        save_dataframe_as(fkt_df, "assets/output/xl_step05_fkt")
-        fkt_df.to_excel("assets/output/xl_step05_fkt.xlsx", index=False, engine="openpyxl")
+        save_dataframe_as(fkt_df, "assets/output/xl_step04_fkt")
+        fkt_df.to_excel("assets/output/xl_step04_fkt.xlsx", index=False, engine="openpyxl")
         print("Saved.")
 
 
 if __name__ == "__main__":
-    step = Step05()
+    step = Step04()
     step.run()
