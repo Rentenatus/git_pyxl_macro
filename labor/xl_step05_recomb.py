@@ -21,6 +21,7 @@ class Step05(Runnable):
 
     def run(self):
         all_df = load_dataframe("assets/output/xl_step03_code")
+        fkt_df = load_dataframe("assets/output/xl_step04_fkt")
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         py_code_import = ""
@@ -32,18 +33,33 @@ class Step05(Runnable):
             if meaning == "++Attribute++":
                 continue
 
-            py_extract = code_extract(row.py_block)
+            py_block = row.py_block
+            py_extract = code_extract(py_block)
             py_imports, py_code = clean_import(py_extract)
             if meaning.startswith("++"):
                 py_code_vars = py_code_vars + "\n\n" + py_code
             else:
                 print(idx,":  ",meaning,"(",params,")")
-                if row.py_block is None or pd.isna(row.py_block):
+                if py_block is None or pd.isna(py_block):
                     print("Warning: Missing code block for ", meaning, "(", params, ")")
                     continue
                 py_code_methods = py_code_methods + "\n\n" + py_code
             py_code_import = py_code_import + "\n" + py_imports
 
+        for idx, row in fkt_df.iterrows():
+            coord = row.coord
+            fkt_name = row.fkt_name
+            py_fkt = row.py_fkt
+
+            py_extract = code_extract(py_fkt)
+            py_imports, py_code = clean_import(py_extract)
+            print(idx, ":  ", coord , ":  ", fkt_name, "()")
+            if py_fkt is None or pd.isna(py_fkt):
+                print("Warning: Missing code block for ", coord )
+                continue
+
+            py_code_methods = py_code_methods + "\n\n" + py_code
+            py_code_import = py_code_import + "\n" + py_imports
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 

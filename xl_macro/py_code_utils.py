@@ -14,7 +14,7 @@ import openpyxl
 from openpyxl.worksheet.formula import ArrayFormula
 
 
-def extract_cell_formulas(xlsm_path: str, named_keys, sign_keys) -> dict:
+def extract_cell_formulas(xlsm_path: str, named_keys, sign_keys_lower) -> dict:
     """
     Läuft über alle Blätter und Zellen einer Excel-Datei (.xlsm)
     und sammelt alle Formeln in einem Dict.
@@ -43,8 +43,8 @@ def extract_cell_formulas(xlsm_path: str, named_keys, sign_keys) -> dict:
                 for nr in named_keys:
                     if nr in str(fkt_code):  # robust: str() falls None
                         used_names.append(nr)
-                for mean in sign_keys:
-                    if mean in str(fkt_code):
+                for mean in sign_keys_lower:
+                    if mean in str(fkt_code.lower()):
                         used_meanings.append(mean)
 
                 sheet_title = sheet.title

@@ -30,18 +30,18 @@ class Step04(Runnable):
 
         # Lade dein bestehendes DataFrame
         all_df = load_dataframe("assets/output/xl_step03_code")
-        sign_dict = {}
+        sign_dict_lower = {}
         for idx, row in all_df.iterrows():
             meaning = row.meaning
             if meaning.startswith("++"):
                 continue
             signatur = row.signatur
-            if pd.notna(signatur): sign_dict[meaning] = signatur
+            if pd.notna(signatur): sign_dict_lower[meaning.lower()] = signatur
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
         # Sammle Formeln
-        formulas = extract_cell_formulas(xlsm_path, named_ranges.keys(), sign_dict.keys())
+        formulas = extract_cell_formulas(xlsm_path, named_ranges.keys(), sign_dict_lower.keys())
         print(f"Gefundene Formeln: {len(formulas)}")
 
         fkt_column_types = {
@@ -56,6 +56,7 @@ class Step04(Runnable):
         }
         fkt_df = pd.DataFrame(formulas.values(), columns=fkt_column_types.keys())
         fkt_df = fkt_df.astype(fkt_column_types)
+        fkt_df["used_py"] = ""
         fkt_df["py_fkt"] = ""
         fkt_df["model_code"] = ""
         fkt_df["code_duration"] = -1
@@ -66,13 +67,20 @@ class Step04(Runnable):
             method_name = row.fkt_name
             names = row.used_names
             used_meanings = row.used_meanings
+            used_py = []
+            for um in used_meanings:
+                if um.lower() in sign_dict_lower:
+                    used_py.append(sign_dict_lower[um.lower()] + "# Excel: "+ um)
+                else:
+                    print("Warning: Missing signature for meaning ", um)
             print(cell_ref, "->", row.value_type, ":", method_name, "using", len(used_meanings), "meanings.")
             start = time.time()
             print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ response function:")
-            response = request_dev_fkt(cell_ref, formel_code, method_name,names, used_meanings)
+            response = request_dev_fkt(cell_ref, formel_code, method_name,names, used_py)
             print(response)
             print("#######~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ end response")
             end = time.time()
+            fkt_df.at[idx, "used_py"] = used_py
             fkt_df.at[idx, "code_duration"] = int((end - start) * 1000)
             fkt_df.at[idx, "model_code"] = PROMPT_MODEL_CODE
             fkt_df.at[idx, "py_fkt"] = response

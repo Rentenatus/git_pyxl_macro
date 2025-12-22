@@ -6,6 +6,7 @@
   "fkt_code": "string",
   "used_names": "object",
   "used_meanings": "object",
+  "used_py": "object",
   "py_fkt": "object",
   "model_code": "object",
   "code_duration": "int64"

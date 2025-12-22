@@ -440,13 +440,13 @@ def request_sign(label: str, code: str, doc_block: str, var_code_py: str, names:
     return response
 
 def prompt_dev_fkt(cell_ref: str, formel_code: str, method_name: str,
-                   names, used_meanings) -> list:
+                   names, used_py) -> list:
     names_block = names if names else "None"
     local_variables = [] if names else ["    local_variable = get_excel_global('local_variable')"]
     for name in names:
         local_variables.append(f"    {name} = get_excel_global('{name}')")
-    functions_block = used_meanings if used_meanings else ""
-    text_call = TEXT_CALL_FOLLOWING_FUNCTIONS if used_meanings else ""
+    functions_block = used_py if used_py else ""
+    text_call = TEXT_CALL_FOLLOWING_FUNCTIONS if used_py else ""
     user_prompt = PromptTemplate.from_template(USER_PROMPT_TEMPLATE_DEV_FKT).format(
         text_call_following_functions = text_call,
         functions_block = functions_block,
@@ -465,7 +465,7 @@ def prompt_dev_fkt(cell_ref: str, formel_code: str, method_name: str,
     return messages
 
 def request_dev_fkt(cell_ref: str, formel_code: str, method_name: str,
-                   names, used_meanings) -> str:
-    messages = prompt_dev_fkt(cell_ref, formel_code, method_name, names, used_meanings)
+                   names, used_py) -> str:
+    messages = prompt_dev_fkt(cell_ref, formel_code, method_name, names, used_py)
     response = get_response(messages, model=PROMPT_MODEL_CODE)
     return response
