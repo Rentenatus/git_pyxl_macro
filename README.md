@@ -25,6 +25,8 @@ Dieses Tool kann also nur ein erster Schritt zu einer echten Softwaremigration s
 
 Dieses Repo führt nicht die Softwarearchitektur ein, die bei professionellen Modernisierung zu erwartet wäre.
 
+All die hier erzielten Ergebnisse spiegeln nicht meine Empfehlung zum Vorgehen. Es ist nur eine Machbarkeitsstudie.
+
 
 # Funktionsumfang
 Der aktuelle Workflow besteht aus mehreren Schritten, die nacheinander ausgeführt werden:
